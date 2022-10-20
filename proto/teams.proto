@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package TeamsProtocol;
+option java_package = "org.example.hz.proto";
+
+enum Mode {
+  TEAM_DEATH_MATCH = 0;
+  TEAM_VS_TEAM = 1;
+}
+
+message Team {
+  string leader_id = 1;
+  Mode mode = 2;
+  repeated string members = 3;
+}
+
+message Error {
+
+  enum Code {
+      INTERNAL_ERROR = 0;
+      NOT_FOUND = 1;
+      ALREADY_CREATED = 2;
+      FORBIDDEN = 3;
+      INVALID_MEMBER_ID = 4;
+      MEMBERS_COUNT_EXCEEDED = 5;
+  }
+
+  Code code = 1;
+  string message = 2;
+}
+
+message Processed {
+  oneof value {
+    Team team = 1;
+  }
+}
+
+message Response {
+  oneof res {
+    Error error = 1;
+    Processed processed = 2;
+  }
+}
+
+message CreateEntryProcessor {
+  string leader_id = 1;
+  Mode mode = 2;
+}
+
+message DisbandEntryProcessor {
+  string sender_id = 1;
+}
+
+message AddMemberEntryProcessor {
+  string sender_id = 1;
+  string member_id = 2;
+}
+
+message KickMemberEntryProcessor {
+  string sender_id = 1;
+  string member_id = 2;
+}
+
+message LeaveEntryProcessor {
+  string memberId = 1;
+}
+
+message ChangeModeEntryProcessor {
+  string sender_id = 1;
+  Mode mode = 2;
+}
+
+message ChangeLeaderEntryProcessor {
+  string sender_id = 1;
+  string member_id = 2;
+}

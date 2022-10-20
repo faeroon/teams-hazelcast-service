@@ -1,0 +1,130 @@
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+}
+
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "$kotlinVersion"
+    id "org.jetbrains.kotlin.plugin.spring" version "$kotlinVersion"
+    id 'org.springframework.boot' version '2.7.4'
+    id "io.spring.dependency-management" version "1.0.14.RELEASE"
+    id 'idea'
+    id "com.google.protobuf" version "0.9.1"
+    id 'com.google.cloud.tools.jib' version "3.3.0"
+}
+
+sourceSets {
+    intTest {
+        compileClasspath += sourceSets.main.output + test.output
+        runtimeClasspath += sourceSets.main.output + test.output
+        kotlin.srcDir "$projectDir/src/intTest/kotlin"
+        resources.srcDir "$projectDir/src/intTest/resources"
+    }
+}
+
+configurations {
+    intTestImplementation.extendsFrom testImplementation
+    intTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    implementation("com.fasterxml.jackson.core:jackson-core:$jackson_version")
+    implementation("com.fasterxml.jackson.core:jackson-databind:$jackson_version")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jackson_version")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jackson_version")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jackson_version")
+
+    implementation("org.springframework.boot:spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("com.datastax.oss:java-driver-core:$cassandraVersion")
+    implementation("com.datastax.oss:java-driver-query-builder:$cassandraVersion")
+    implementation("com.hazelcast:hazelcast:$hazelcastVersion")
+
+    implementation("com.google.protobuf:protobuf-java:$protobufVersion")
+
+    protobuf(files("./proto"))
+
+    annotationProcessor "org.springframework.boot:spring-boot-configuration-processor"
+
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: jUnitVersion
+    testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: jUnitVersion
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+
+    intTestImplementation('org.springframework.boot:spring-boot-starter-test')
+}
+
+test {
+    useJUnitPlatform()
+    dependsOn "cleanTest"
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = '11'
+}
+
+compileTestKotlin {
+    kotlinOptions.jvmTarget = '11'
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:$protobufVersion"
+    }
+}
+
+task integrationTest(type: Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    useJUnitPlatform()
+
+    testClassesDirs = sourceSets.intTest.output.classesDirs
+    classpath = sourceSets.intTest.runtimeClasspath
+    shouldRunAfter test
+}
+
+tasks.named("processIntTestResources") {
+    duplicatesStrategy = 'include'
+}
+
+tasks {
+    bootJar {
+        mainClass.set('org.example.hz.ApplicationKt')
+        archiveFileName.set('hz-example.jar')
+    }
+}
+
+idea {
+    module {
+        testSourceDirs += project.sourceSets.intTest.kotlin.srcDirs
+        testResourceDirs += project.sourceSets.intTest.resources.srcDirs
+        generatedSourceDirs.add(file('build/generated/source/proto/main'))
+    }
+}
+
+jib {
+
+    from {
+        image = 'gcr.io/distroless/java:11'
+    }
+
+    to {
+        image = "test/teams-service"
+        tags = ["latest"]
+    }
+    container {
+        mainClass = 'org.example.hz.ApplicationKt'
+        ports = ['8080', '5701']
+    }
+}
